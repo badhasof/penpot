@@ -131,7 +131,8 @@
 
         on-style-change
         (fn [event]
-          (let [styles (styles/get-styles-from-event event)]
+          (let [
+            styles (styles/get-styles-from-event event)]
             (st/emit! (dwt/v2-update-text-editor-styles shape-id styles))))
 
         on-needs-layout
