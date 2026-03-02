@@ -436,19 +436,11 @@
       {:type :direct :attrs {:layout-item-z-index (int v)}})
 
     ;; --- Grid Container ---
-    "grid-template-rows"
-    (let [tracks (parse-tracks value-str)]
-      (when (seq tracks)
-        {:type :layout :attrs {:layout-grid-rows tracks}}))
-
-    "grid-template-columns"
-    (let [tracks (parse-tracks value-str)]
-      (when (seq tracks)
-        {:type :layout :attrs {:layout-grid-columns tracks}}))
-
-    "grid-auto-flow"
-    (when (= value-str "column")
-      {:type :layout :attrs {:layout-grid-dir :column}})
+    ;; Grid track changes are skipped — removing/reordering tracks can crash
+    ;; the layout engine when elements are assigned to removed tracks.
+    "grid-template-rows" nil
+    "grid-template-columns" nil
+    "grid-auto-flow" nil
 
     ;; --- Unsupported properties (position, transform, left, top, etc.) ---
     nil))
