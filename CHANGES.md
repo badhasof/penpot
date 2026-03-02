@@ -57,6 +57,7 @@
 - Fix unable to finish the create account form using keyboard [Taiga #11333](https://tree.taiga.io/project/penpot/issue/11333)
 - Fix 45 rotated board titles rendered incorrectly [Taiga #13306](https://tree.taiga.io/project/penpot/issue/13306)
 - Fix cannot apply second token after creation while shape is selected [Taiga #13513](https://tree.taiga.io/project/penpot/issue/13513)
+- Fix error activating a set with invalid shadow token applied [Taiga #13528](https://tree.taiga.io/project/penpot/issue/13528)
 
 ## 2.13.3
 
