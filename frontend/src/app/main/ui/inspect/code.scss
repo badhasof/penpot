@@ -56,9 +56,10 @@
 
 .code-row-lang {
   display: grid;
-  grid-template-columns: deprecated.$s-12 1fr deprecated.$s-60;
+  grid-template-columns: deprecated.$s-12 1fr auto;
   gap: deprecated.$s-4;
   width: 100%;
+  align-items: center;
 }
 
 .code-lang {
@@ -68,9 +69,9 @@
 }
 
 .action-btns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   gap: deprecated.$s-4;
+  justify-content: flex-end;
 }
 
 .expand-button,
@@ -141,4 +142,67 @@
       stroke: var(--title-foreground-color-hover);
     }
   }
+}
+
+// Edit mode styles
+
+.edit-button {
+  @extend .button-tertiary;
+  @include deprecated.uppercaseTitleTipography;
+  height: deprecated.$s-32;
+  padding: 0 deprecated.$s-8;
+  font-size: deprecated.$fs-11;
+  white-space: nowrap;
+}
+
+.edit-button-active {
+  background-color: var(--color-accent-primary);
+  color: var(--color-foreground-primary);
+  &:hover {
+    background-color: var(--color-accent-primary-muted);
+  }
+}
+
+.edit-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: deprecated.$s-8;
+  padding: deprecated.$s-4 0;
+}
+
+.apply-button {
+  @extend .button-primary;
+  @include deprecated.uppercaseTitleTipography;
+  height: deprecated.$s-28;
+  padding: 0 deprecated.$s-12;
+  font-size: deprecated.$fs-11;
+}
+
+.reset-button {
+  @extend .button-secondary;
+  @include deprecated.uppercaseTitleTipography;
+  height: deprecated.$s-28;
+  padding: 0 deprecated.$s-12;
+  font-size: deprecated.$fs-11;
+}
+
+.status-message {
+  @include deprecated.codeTypography;
+  font-size: deprecated.$fs-11;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.status-error {
+  color: var(--color-accent-error);
+}
+
+.status-success {
+  color: var(--color-accent-success);
+}
+
+.code-block-editing {
+  border: deprecated.$s-1 solid var(--color-accent-primary);
+  border-radius: deprecated.$br-8;
+  padding: deprecated.$s-4;
 }

@@ -17,7 +17,7 @@
    [app.main.fonts :as fonts]
    [app.main.refs :as refs]
    [app.main.store :as st]
-   [app.main.ui.components.code-block :refer [code-block]]
+   [app.main.ui.components.code-block :refer [code-block editable-code-block*]]
    [app.main.ui.components.copy-button :refer [copy-button*]]
    [app.main.ui.components.radio-buttons :refer [radio-button radio-buttons]]
    [app.main.ui.hooks.resize :refer [use-resize-hook]]
@@ -26,6 +26,7 @@
    [app.util.clipboard :as clipboard]
    [app.util.code-beautify :as cb]
    [app.util.code-gen :as cg]
+   [app.util.code-gen.code-apply :as code-apply]
    [app.util.dom :as dom]
    [app.util.http :as http]
    [beicon.v2.core :as rx]
@@ -103,14 +104,24 @@
         fontfaces-css* (mf/use-state nil)
         images-data*   (mf/use-state nil)
 
+        ;; Edit mode state
+        editing?*      (mf/use-state false)
+        edited-css*    (mf/use-state nil)
+        apply-status*  (mf/use-state nil)
+
         style-type     (deref style-type*)
         markup-type    (deref markup-type*)
         fontfaces-css  (deref fontfaces-css*)
         images-data    (deref images-data*)
+        editing?       (deref editing?*)
+        edited-css     (deref edited-css*)
+        apply-status   (deref apply-status*)
 
         collapsed*        (mf/use-state #{})
         collapsed-css?    (contains? @collapsed* :css)
         collapsed-markup? (contains? @collapsed* :markup)
+
+        workspace?     (= from :workspace)
 
         objects        (use-objects from)
 
@@ -187,16 +198,55 @@
          style-size :size}
         (use-resize-hook :code 400 100 800 :y false :bottom)
 
-        ;; set-style
-        ;; (mf/use-fn
-        ;;  (fn [value]
-        ;;    (reset! style-type* value)))
-
         set-markup
         (mf/use-fn
          (mf/deps markup-type*)
          (fn [value]
            (reset! markup-type* value)))
+
+        ;; --- Edit mode handlers ---
+
+        handle-toggle-edit
+        (mf/use-fn
+         (mf/deps editing? style-code)
+         (fn [_event]
+           (if editing?
+             (do
+               (reset! editing?* false)
+               (reset! edited-css* nil)
+               (reset! apply-status* nil))
+             (do
+               (reset! editing?* true)
+               (reset! edited-css* style-code)
+               (reset! apply-status* nil)))))
+
+        handle-css-change
+        (mf/use-fn
+         (fn [value]
+           (reset! edited-css* value)
+           (reset! apply-status* nil)))
+
+        handle-apply-css
+        (mf/use-fn
+         (mf/deps edited-css style-code objects)
+         (fn []
+           (when edited-css
+             (let [result (code-apply/apply-css-changes edited-css style-code objects)]
+               (if (:error result)
+                 (reset! apply-status* {:type :error :message (:error result)})
+                 (do
+                   (reset! apply-status* {:type :success
+                                          :message (dm/str (:changes result) " change(s) applied")})
+                   ;; Exit edit mode after successful apply
+                   (reset! editing?* false)
+                   (reset! edited-css* nil)))))))
+
+        handle-reset-css
+        (mf/use-fn
+         (mf/deps style-code)
+         (fn [_event]
+           (reset! edited-css* style-code)
+           (reset! apply-status* nil)))
 
         handle-copy-all-code
         (mf/use-fn
@@ -211,11 +261,6 @@
                                    ::ev/origin origin
                                    :type "all"})))))
 
-        ;;handle-open-review
-        ;;(mf/use-fn
-        ;; (fn []
-        ;;   (st/emit! (dp/open-preview-selected))))
-
         handle-collapse
         (mf/use-fn
          (fn [event]
@@ -227,6 +272,7 @@
                       (if (contains? collapsed panel-type)
                         (disj collapsed panel-type)
                         (conj collapsed panel-type)))))))
+
         copy-css-fn
         (mf/use-fn
          (mf/deps style-code images-data)
@@ -257,6 +303,13 @@
             (fn [result]
               (reset! images-data* result)))))
 
+    ;; Exit edit mode when selection changes
+    (mf/with-effect [shapes]
+      (when editing?
+        (reset! editing?* false)
+        (reset! edited-css* nil)
+        (reset! apply-status* nil)))
+
     [:div {:class (stl/css-case :element-options true
                                 :viewer-code-block (= :viewer from))}
      [:div {:class (stl/css :attributes-block)}
@@ -264,12 +317,9 @@
                 :on-click handle-copy-all-code}
        "Copy all code"]]
 
-     #_[:div.attributes-block
-        [:button.download-button {:on-click handle-open-review}
-         "Preview"]]
-
      [:div {:class (stl/css-case :code-block true
-                                 :collapsed collapsed-css?)}
+                                 :collapsed collapsed-css?
+                                 :code-block-editing editing?)}
       [:div {:class (stl/css :code-row-lang)}
        [:button {:class (stl/css :toggle-btn)
                  :data-type "css"
@@ -281,26 +331,50 @@
 
        [:div {:class (stl/css :code-lang-option)}
         "CSS"]
-       ;; We will have a select when we have more than one option
-       ;;  [:& select {:default-value style-type
-       ;;              :class (stl/css :code-lang-select)
-       ;;              :on-change set-style
-       ;;              :options [{:label "CSS" :value "css"}]}]
 
        [:div {:class (stl/css :action-btns)}
-        [:button {:class (stl/css :expand-button)
-                  :on-click on-expand}
-         deprecated-icon/code]
+        (when workspace?
+          [:button {:class (stl/css-case :edit-button true
+                                         :edit-button-active editing?)
+                    :on-click handle-toggle-edit
+                    :title (if editing? "Exit edit mode" "Edit CSS")}
+           (if editing? "Done" "Edit")])
 
-        [:> copy-button* {:data copy-css-fn
-                          :class (stl/css :css-copy-btn)
-                          :on-copied on-style-copied}]]]
+        (when-not editing?
+          [:button {:class (stl/css :expand-button)
+                    :on-click on-expand}
+           deprecated-icon/code])
+
+        (when-not editing?
+          [:> copy-button* {:data copy-css-fn
+                            :class (stl/css :css-copy-btn)
+                            :on-copied on-style-copied}])]]
+
+      ;; Apply/Reset bar when in edit mode
+      (when (and editing? (not collapsed-css?))
+        [:div {:class (stl/css :edit-actions-bar)}
+         [:button {:class (stl/css :apply-button)
+                   :on-click handle-apply-css}
+          "Apply"]
+         [:button {:class (stl/css :reset-button)
+                   :on-click handle-reset-css}
+          "Reset"]
+         (when apply-status
+           [:span {:class (stl/css-case :status-message true
+                                        :status-error (= (:type apply-status) :error)
+                                        :status-success (= (:type apply-status) :success))}
+            (:message apply-status)])])
 
       (when-not collapsed-css?
         [:div {:class (stl/css :code-row-display)
                :style {:--code-height (dm/str (or style-size 400) "px")}}
-         [:& code-block {:type style-type
-                         :code style-code}]])
+         (if editing?
+           [:> editable-code-block* {:code (or edited-css style-code)
+                                     :type style-type
+                                     :on-change handle-css-change
+                                     :on-apply handle-apply-css}]
+           [:& code-block {:type style-type
+                           :code style-code}])])
 
       [:div {:class (stl/css :resize-area)
              :on-pointer-down on-style-pointer-down

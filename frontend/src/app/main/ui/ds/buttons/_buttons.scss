@@ -38,10 +38,12 @@
   color: var(--button-fg-color);
   border: $b-1 solid var(--button-border-color);
   border-radius: $br-8;
+  transition: transform 0.15s ease-out, background 0.15s ease-out, color 0.15s ease-out, border-color 0.15s ease-out;
 
   &:hover {
     --button-bg-color: var(--button-hover-bg-color);
     --button-fg-color: var(--button-hover-fg-color);
+    transform: scale(1.03);
   }
 
   &:active,

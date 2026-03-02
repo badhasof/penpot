@@ -17,3 +17,20 @@
   color: var(--input-foreground-color-active);
   overflow: auto;
 }
+
+.code-editor {
+  @include t.use-typography("code-font");
+  border-radius: $br-8;
+  margin-top: var(--sp-s);
+  padding: var(--sp-m);
+  background-color: var(--menu-background-color);
+  color: var(--input-foreground-color-active);
+  overflow: auto;
+  border: $b-1 solid var(--color-accent-primary);
+  resize: none;
+  width: 100%;
+  height: 100%;
+  outline: none;
+  white-space: pre;
+  tab-size: 2;
+}

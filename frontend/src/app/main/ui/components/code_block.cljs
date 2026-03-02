@@ -8,6 +8,7 @@
   (:require-macros [app.main.style :as stl])
   (:require
    [app.common.data.macros :as dm]
+   [app.util.dom :as dom]
    [app.util.modules :as modules]
    [cuerdas.core :as str]
    [promesa.core :as p]
@@ -32,4 +33,38 @@
                          (f node)))))))
 
     [:pre {:class (dm/str type " " (stl/css :code-display)) :ref block-ref} code]))
+
+(mf/defc editable-code-block*
+  {::mf/wrap-props false}
+  [{:keys [code type on-change on-apply]}]
+  (let [textarea-ref (mf/use-ref)
+        code         (str/trim code)
+
+        handle-change
+        (mf/use-fn
+         (mf/deps on-change)
+         (fn [event]
+           (let [value (dom/get-target-val event)]
+             (when on-change
+               (on-change value)))))
+
+        handle-key-down
+        (mf/use-fn
+         (mf/deps on-apply)
+         (fn [event]
+           ;; Cmd/Ctrl+Enter to apply
+           (when (and (= (.-key event) "Enter")
+                      (or (.-metaKey event) (.-ctrlKey event)))
+             (dom/prevent-default event)
+             (dom/stop-propagation event)
+             (when on-apply (on-apply)))))]
+
+    [:textarea {:class (stl/css :code-editor)
+                :ref textarea-ref
+                :default-value code
+                :spell-check false
+                :auto-correct "off"
+                :auto-capitalize "off"
+                :on-change handle-change
+                :on-key-down handle-key-down}]))
 
