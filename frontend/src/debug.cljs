@@ -16,6 +16,7 @@
    [app.common.pprint :as pp]
    [app.common.transit :as t]
    [app.common.types.file :as ctf]
+   [app.common.types.shape-tree :as ctst]
    [app.common.uuid :as uuid]
    [app.main.data.changes :as dwc]
    [app.main.data.common :as dcm]
@@ -25,12 +26,15 @@
    [app.main.data.viewer.shortcuts]
    [app.main.data.workspace :as dw]
    [app.main.data.workspace.common :as dwcm]
+   [app.main.data.workspace.transforms :as dwt]
    [app.main.data.workspace.path.shortcuts]
    [app.main.data.workspace.selection :as dws]
    [app.main.data.workspace.shortcuts]
    [app.main.errors :as errors]
    [app.main.repo :as rp]
    [app.main.store :as st]
+   [app.util.code-gen :as cg]
+   [app.util.code-gen.code-apply :as code-apply]
    [app.util.debug :as dbg]
    [app.util.dom :as dom]
    [app.util.http :as http]
@@ -458,6 +462,72 @@
   []
   (.log js/console (clj->js @http/network-averages)))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; CSS APPLY TOOL
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn- get-page-css*
+  "Generate CSS for all shapes on the current page."
+  [state]
+  (let [objects    (dsh/lookup-page-objects state)
+        all-ids    (->> (keys objects)
+                        (remove #(= % uuid/zero)))
+        all-shapes (->> (ctst/sort-z-index objects all-ids)
+                        (mapv #(get objects %)))]
+    (cg/generate-style-code objects "css" [] all-shapes
+                            {:with-prelude? false})))
+
+(defn ^:export get-page-css
+  "Get current CSS for all shapes on the page.
+   Usage: debug.get_page_css()"
+  []
+  (get-page-css* @st/state))
+
+(defn ^:export get-page-shapes
+  "Get shape info (name, id, type, position, size, parent) for all shapes.
+   Usage: debug.get_page_shapes()"
+  []
+  (let [objects (dsh/lookup-page-objects @st/state)]
+    (->> (vals objects)
+         (remove #(= (:id %) uuid/zero))
+         (sort-by (juxt :frame-id :parent-id :id))
+         (mapv (fn [s]
+                 (let [parent (get objects (:parent-id s))]
+                   (dm/str (:name s)
+                           " | id:" (subs (str (:id s)) (- (count (str (:id s))) 12))
+                           " | type:" (name (:type s))
+                           " | x:" (Math/round (:x s))
+                           " y:" (Math/round (:y s))
+                           " w:" (Math/round (:width s))
+                           " h:" (Math/round (:height s))
+                           (when parent
+                             (dm/str " | parent:" (:name parent)))))))
+         (str/join "\n"))))
+
+(defn ^:export move-shape
+  "Move a shape to absolute canvas coordinates.
+   Usage: debug.move_shape('a7010a0f63a5', 100, 200)"
+  [id-suffix x y]
+  (let [objects (dsh/lookup-page-objects @st/state)
+        shape   (->> (vals objects)
+                     (d/seek #(str/ends-with? (str (:id %)) id-suffix)))]
+    (if shape
+      (do (st/emit! (dwt/update-position (:id shape) {:x x :y y}))
+          (clj->js {:ok true :name (:name shape)}))
+      (clj->js {:error (str "No shape found ending with " id-suffix)}))))
+
+(defn ^:export apply-css
+  "Apply CSS changes to shapes on the page.
+   Diffs against current page CSS and applies only changes.
+   Usage: debug.apply_css('.Frame-xxxxxxxxxxxx { width: 300px; }')
+   Returns: {ok: true, changes: N} or {error: '...'}"
+  [css-text]
+  (let [state        @st/state
+        objects      (dsh/lookup-page-objects state)
+        original-css (get-page-css* state)
+        result       (code-apply/apply-css-changes css-text original-css objects)]
+    (clj->js result)))
 
 (defn print-last-exception
   []
