@@ -7,13 +7,16 @@
 (ns app.main.ui.nitrate.nitrate-form
   (:require-macros [app.main.style :as stl])
   (:require
+   [app.common.data.macros :as dm]
    [app.common.schema :as sm]
+   [app.config :as cf]
    [app.main.data.modal :as modal]
    [app.main.data.nitrate :as dnt]
    [app.main.ui.components.forms :as fm]
    [app.main.ui.ds.buttons.button :refer [button*]]
    [app.main.ui.ds.foundations.assets.icon :as i :refer [icon*]]
    [app.main.ui.ds.foundations.assets.raw-svg :refer [raw-svg*]]
+   [lambdaisland.uri :as u]
    [rumext.v2 :as mf]))
 
 (def ^:private schema:nitrate-form
@@ -35,7 +38,8 @@
         (mf/use-fn
          (mf/deps form)
          (fn []
-           (dnt/go-to-buy-nitrate-license (-> @form :clean-data :subscription name))))]
+           (dnt/go-to-buy-nitrate-license (-> @form :clean-data :subscription name))))
+        go-to-subscription (dm/str (u/join cf/public-uri "#/settings/subscriptions"))]
 
     [:div {:class (stl/css :modal-overlay)}
      [:div {:class (stl/css :modal-dialog :subscription-success)}
@@ -78,7 +82,7 @@
 
 
            [:p {:class (stl/css :modal-text-medium)}
-            [:a {:class (stl/css :link)}
+            [:a {:class (stl/css :link) :href go-to-subscription}
              "See my current plan"]]]
 
           [:div {:class (stl/css :contact)}
